@@ -433,7 +433,7 @@ export const updateUserStatus = async (req, res) => {
 //all user and all user details
 export const getAllUsers = async (req, res) => {
     try {
-        // ✅ Fetch all users from database without excluding anything
+        // ✅ Fetch all users
         const users = await User.find();
 
         if (!users || users.length === 0) {
@@ -443,19 +443,31 @@ export const getAllUsers = async (req, res) => {
             });
         }
 
-        // ✅ Send everything as-is
+        // ✅ Fetch all course details
+        const allCourses = await CourseDetails.find();
+
+        // ✅ Create a map for faster lookup
+        const courseMap = new Map(allCourses.map(course => [course.userId, course]));
+
+        // ✅ Attach course details to each user
+        const usersWithCourses = users.map(user => ({
+            ...user.toObject(),
+            courseDetails: courseMap.get(user.userId) || null, // attach matching course details
+        }));
+
+        // ✅ Send final response
         res.status(200).json({
             success: true,
-            message: "All users fetched successfully",
-            totalUsers: users.length,
-            data: users,
+            message: "All users with their course details fetched successfully",
+            totalUsers: usersWithCourses.length,
+            data: usersWithCourses,
         });
 
     } catch (error) {
-        console.error("❌ Error fetching all users:", error);
+        console.error("❌ Error fetching all users with courses:", error);
         res.status(500).json({
             success: false,
-            message: "Failed to fetch all users",
+            message: "Failed to fetch users with course details",
             error: error.message,
         });
     }
