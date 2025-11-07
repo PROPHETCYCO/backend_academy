@@ -2,7 +2,7 @@ import User from '../models/User.js';
 
 const LEVEL_PERCENTAGES = {
     2: 0.12,
-    3: 0.05,
+    3: 0.08,
     4: 0.03,
     5: 0.02,
     6: 0.01,
@@ -49,5 +49,60 @@ export const calculateRealtimeReferralPoints = async (userId, currentLevel = 1, 
     } catch (error) {
         console.error("Error calculating referral points:", error);
         return 0;
+    }
+};
+
+
+export const calculateReferralPoints = async (
+    userId,
+    currentLevel = 1,
+    visited = new Set(),
+    userMap = null
+) => {
+    try {
+        if (currentLevel > 10) return { referralPoints: 0, directReferralPoints: 0 };
+
+        // Load all users into memory once
+        if (!userMap) {
+            const allUsers = await User.find({}, { userId: 1, referredIds: 1, selfPoints: 1 });
+            userMap = new Map(allUsers.map(u => [u.userId, u]));
+        }
+
+        // Prevent circular recursion
+        if (visited.has(userId)) return { referralPoints: 0, directReferralPoints: 0 };
+        visited.add(userId);
+
+        const user = userMap.get(userId);
+        if (!user || !user.referredIds?.length)
+            return { referralPoints: 0, directReferralPoints: 0 };
+
+        let referralPoints = 0;
+        let directReferralPoints = 0;
+
+        for (const childId of user.referredIds) {
+            const child = userMap.get(childId);
+            if (!child) continue;
+
+            // ✅ Direct referred points = sum of selfPoints of direct referrals
+            if (currentLevel === 1) {
+                directReferralPoints += child.selfPoints || 0;
+            }
+
+            // ✅ Recursive call for deeper levels (exclude direct referrals from referralPoints)
+            const downlineData = await calculateReferralPoints(
+                childId,
+                currentLevel + 1,
+                visited,
+                userMap
+            );
+
+            // Only add points from levels deeper than 1
+            referralPoints += (currentLevel === 1 ? 0 : child.selfPoints || 0) + downlineData.referralPoints;
+        }
+
+        return { referralPoints, directReferralPoints };
+    } catch (error) {
+        console.error("❌ Error calculating referral points:", error);
+        return { referralPoints: 0, directReferralPoints: 0 };
     }
 };

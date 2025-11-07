@@ -1,6 +1,6 @@
 import User from "../models/User.js";
 import Payout from "../models/Payout.js";
-import { calculateRealtimeReferralPoints } from "../utils/calculateReferralPoints.js";
+import { calculateRealtimeReferralPoints, calculateReferralPoints } from "../utils/calculateReferralPoints.js";
 
 // GET /api/referral/realtime/:userId
 export const getRealtimeReferralPoints = async (req, res) => {
@@ -37,6 +37,8 @@ export const getRealtimeReferralPoints = async (req, res) => {
 
         // ✅ Step 2: Calculate Multi-level Referral Points
         const referredPoints = await calculateRealtimeReferralPoints(userId);
+        const { referralPoints, directReferralPoints } = await calculateReferralPoints(userId);
+        const referralPoint = referralPoints + directReferralPoints;
 
         // ✅ Step 3: Save or Update Payout Record
         let payout = await Payout.findOne({ userId });
@@ -69,6 +71,8 @@ export const getRealtimeReferralPoints = async (req, res) => {
                 name,
                 directReferredPoints,
                 referredPoints,
+                referralPoint,
+                directReferralPoints,
                 totalPoints: payout.totalPoints, // existing totalPoints retained
             },
         });

@@ -4,7 +4,7 @@ import { getRealtimeReferralPoints, getUserWithReferrals } from "../controllers/
 const router = express.Router();
 
 // Real-time points endpoint
-router.get("/realtime/:userId", getRealtimeReferralPoints);  // Fetch real-time referral points
+router.post("/realtime", getRealtimeReferralPoints);  // Fetch real-time referral points
 router.get("/:userId", getUserWithReferrals);  // Fetch user and their referrals (TREE)
 
 export default router;
