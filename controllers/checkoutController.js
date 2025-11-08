@@ -78,6 +78,7 @@ export const paymentverification_students = async (req, res) => {
 
         // ✅ Step 3: Update user points
         user.selfPoints = (user.selfPoints || 0) + pointsToAdd;
+        user.totalSelfPoints = (user.totalSelfPoints || 0) + pointsToAdd;
         await user.save();
         await paymentDetails.save();
 

@@ -91,6 +91,11 @@ const userSchema = new mongoose.Schema(
             default: 0,
         },
 
+        totalSelfPoints: {
+            type: Number,
+            default: 0,
+        },
+
         status: {
             type: String,
             enum: ["pending", "active", "inactive"],

@@ -48,6 +48,11 @@ const payoutSchema = new mongoose.Schema(
                     required: true,
                 },
 
+                payoutAmount: {
+                    type: Number,
+                    required: true,
+                },
+
                 // ✅ Store IST date & time as readable string
                 date: {
                     type: String,

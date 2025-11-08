@@ -32,10 +32,13 @@ export const runGlobalPayout = async (req, res) => {
         for (const user of users) {
             const referredPoints = await calculateRealtimeReferralPoints(user.userId);
             const totalPoints = referredPoints;
+            const deduction = totalPoints * 0.05;
+            const payoutAmount = totalPoints - deduction;
 
             // New payout entry
             const payoutEntry = {
                 amount: totalPoints,
+                payoutAmount: payoutAmount,
                 status: "pending",
             };
 
