@@ -141,3 +141,150 @@ export const getUserWithReferrals = async (req, res) => {
         });
     }
 };
+
+
+// New API: Get Team Summary
+export const getTeamSummary = async (req, res) => {
+    try {
+        const { userId } = req.body;
+
+        if (!userId) {
+            return res.status(400).json({
+                success: false,
+                message: "userId is required in request body",
+            });
+        }
+
+        // Step 1️⃣: Load all users once for optimization
+        const allUsers = await User.find({}, { userId: 1, name: 1, referredIds: 1, totalSelfPoints: 1 });
+        const userMap = new Map(allUsers.map(u => [u.userId, u]));
+
+        const rootUser = userMap.get(userId);
+        if (!rootUser) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found",
+            });
+        }
+
+        const visited = new Set();
+
+        // Step 2️⃣: Recursive function to calculate team stats
+        const calculateTeam = (id, level = 1) => {
+            if (level > 10) return { totalPoints: 0, totalDownlineCount: 0 };
+            if (visited.has(id)) return { totalPoints: 0, totalDownlineCount: 0 };
+            visited.add(id);
+
+            const user = userMap.get(id);
+            if (!user || !user.referredIds?.length) return { totalPoints: 0, totalDownlineCount: 0 };
+
+            let totalPoints = 0;
+            let totalDownlineCount = 0;
+
+            for (const childId of user.referredIds) {
+                const child = userMap.get(childId);
+                if (!child) continue;
+
+                totalPoints += child.totalSelfPoints || 0;
+                totalDownlineCount += 1;
+
+                const subTree = calculateTeam(childId, level + 1);
+                totalPoints += subTree.totalPoints;
+                totalDownlineCount += subTree.totalDownlineCount;
+            }
+
+            return { totalPoints, totalDownlineCount };
+        };
+
+        // Step 3️⃣: Compute team stats
+        const { totalPoints, totalDownlineCount } = calculateTeam(userId);
+
+        // Step 4️⃣: Count direct referrals
+        const directReferrals = rootUser.referredIds?.length || 0;
+
+        // ✅ Step 5️⃣: Send response
+        res.status(200).json({
+            success: true,
+            userId: rootUser.userId,
+            name: rootUser.name, // ✅ root user's name
+            totalPoints,
+            totalDownlineCount,
+            directReferrals,
+        });
+
+    } catch (error) {
+        console.error("Error in getTeamSummary:", error);
+        res.status(500).json({
+            success: false,
+            message: "Server error",
+            error: error.message,
+        });
+    }
+};
+
+
+// New API: Get All Team Summaries
+export const getAllTeamSummaries = async (req, res) => {
+    try {
+        // Step 1️⃣: Load all users once for optimization
+        const allUsers = await User.find({}, { userId: 1, name: 1, referredIds: 1, totalSelfPoints: 1 });
+        const userMap = new Map(allUsers.map(u => [u.userId, u]));
+
+        // Step 2️⃣: Recursive function (same as before)
+        const calculateTeam = (id, level = 1, visited = new Set()) => {
+            if (level > 10) return { totalPoints: 0, totalDownlineCount: 0 };
+            if (visited.has(id)) return { totalPoints: 0, totalDownlineCount: 0 };
+            visited.add(id);
+
+            const user = userMap.get(id);
+            if (!user || !user.referredIds?.length) return { totalPoints: 0, totalDownlineCount: 0 };
+
+            let totalPoints = 0;
+            let totalDownlineCount = 0;
+
+            for (const childId of user.referredIds) {
+                const child = userMap.get(childId);
+                if (!child) continue;
+
+                totalPoints += child.totalSelfPoints || 0;
+                totalDownlineCount += 1;
+
+                const subTree = calculateTeam(childId, level + 1, visited);
+                totalPoints += subTree.totalPoints;
+                totalDownlineCount += subTree.totalDownlineCount;
+            }
+
+            return { totalPoints, totalDownlineCount };
+        };
+
+        // Step 3️⃣: Loop through every user
+        const results = [];
+        for (const user of allUsers) {
+            const { totalPoints, totalDownlineCount } = calculateTeam(user.userId);
+            const directReferrals = user.referredIds?.length || 0;
+
+            results.push({
+                userId: user.userId,
+                name: user.name,
+                totalPoints,
+                totalDownlineCount,
+                directReferrals,
+            });
+        }
+
+        // Step 4️⃣: Send all results
+        res.status(200).json({
+            success: true,
+            count: results.length,
+            data: results,
+        });
+
+    } catch (error) {
+        console.error("Error in getAllTeamSummaries:", error);
+        res.status(500).json({
+            success: false,
+            message: "Server error",
+            error: error.message,
+        });
+    }
+};
