@@ -7,25 +7,26 @@ function getISTDate() {
     return new Date(utcOffset);
 }
 
+const rewardSchema = new mongoose.Schema({
+    rankName: { type: String, required: true },
+    status: { type: String, default: "pending" }, // pending / approved / rejected
+    achievedAt: {
+        type: Date,
+        default: getISTDate
+    }
+});
+
 const rankSchema = new mongoose.Schema(
     {
-        userId: {
-            type: String,
-            required: true,
-        },
-        name: {
-            type: String,
-            required: true,
-        },
-        rewards: [
-            {
-                rankName: { type: String, required: true },
-                achievedAt: {
-                    type: Date,
-                    default: getISTDate   // auto-save date/time
-                },
-            },
-        ],
+        userId: { type: String, required: true },
+        name: { type: String, required: true },
+
+        // NEW FIELDS
+        totalTeam: { type: Number, default: 0 },
+        directTeam: { type: Number, default: 0 },
+        points: { type: Number, default: 0 },
+
+        rewards: [rewardSchema],
     },
     { timestamps: true }
 );
