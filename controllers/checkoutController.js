@@ -1,4 +1,4 @@
-import  Checkout  from "../models/Checkout.js";
+import Checkout from "../models/Checkout.js";
 import { instance } from "../index.js";
 import crypto from "crypto";
 import dotenv from "dotenv";
@@ -8,20 +8,155 @@ import CourseDetails from "../models/CourseDetails.js";
 dotenv.config();
 export const checkout = async (req, res) => {
     try {
+        const {
+            userId,
+            fullname,
+            phoneno,
+            email,
+            address,
+            packagename,
+            coursename,
+            amount,
+        } = req.body;
         const options = {
             amount: Number(req.body.amount * 100),
             currency: "INR",
-            //   receipt: `receipt_${Date.now()}`, // unique receipt id
+            notes: {
+                userId,
+                fullname,
+                phoneno,
+                email,
+                address,
+                packagename,
+                coursename,
+            },
         };
         const order = await instance.orders.create(options);
-        console.log(order);
-        console.log(process.env.RAZORPAY_API_SECRET);
+        // :white_tick: SAVE BEFORE PAYMENT (CRITICAL)
+        await Checkout.create({
+            userId,
+            fullname,
+            phoneno,
+            email,
+            address,
+            packagename,
+            coursename,
+            amount,
+            razorpay_order_id: order.id,
+            paymentStatus: "pending",
+        });
         res.status(200).json({ success: true, order });
     } catch (error) {
-        console.error("Error creating Razorpay order:", error);
-        res.status(400).send("Internal Server Error");
+        console.error(error);
+        res.status(500).json({ success: false });
     }
 };
+
+
+//Razorpay Webhook
+export const razorpayWebhook = async (req, res) => {
+    console.log(":bell: RAZORPAY WEBHOOK HIT");
+    try {
+        const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
+        const signature = req.headers["x-razorpay-signature"];
+        const body = req.body; // RAW BUFFER
+        const expectedSignature = crypto
+            .createHmac("sha256", secret)
+            .update(body)
+            .digest("hex");
+        if (signature !== expectedSignature) {
+            console.log(":x: Invalid Signature");
+            return res.status(400).json({ message: "Invalid signature" });
+        }
+        const event = JSON.parse(body.toString());
+        console.log(":envelope_with_arrow: Event received:", event.event);
+        /* =========================
+           HANDLE ORDER.PAID
+        ==========================*/
+        if (event.event === "order.paid") {
+            const order = event.payload.order.entity;
+            const orderId = order.id;
+            console.log(":white_tick: Order Paid:", orderId);
+            const checkout = await Checkout.findOne({
+                razorpay_order_id: orderId,
+            });
+            if (!checkout) {
+                console.log(":x: Checkout not found");
+                return res.status(200).json({ status: "not_found" });
+            }
+            if (checkout.paymentStatus === "paid") {
+                return res.status(200).json({ status: "already_paid" });
+            }
+            checkout.paymentStatus = "paid";
+            const payment = event.payload.payment?.entity;
+            checkout.razorpay_payment_id = payment?.id || null;
+            await checkout.save();
+            await handleBusinessLogic(checkout);
+            console.log(":tada: Payment marked PAID via order.paid");
+        }
+        return res.status(200).json({ status: "ok" });
+    } catch (err) {
+        console.error(":x: Webhook error:", err);
+        return res.status(500).json({ message: "Webhook error" });
+    }
+};
+
+
+//handle Business logic
+const handleBusinessLogic = async (checkout) => {
+    const {
+        userId,
+        fullname,
+        phoneno,
+        email,
+        address,
+        packagename,
+        coursename,
+        amount,
+    } = checkout;
+    const pointsToAdd = getPointsForAmount(amount);
+    const validityMonths = getValidityForAmount(amount);
+    const user = await User.findOne({ userId });
+    if (!user) return;
+    const now = new Date();
+    const newValidityEnd = new Date(now);
+    newValidityEnd.setMonth(newValidityEnd.getMonth() + validityMonths);
+    // :white_tick: POINTS (UNCHANGED)
+    user.selfPoints = (user.selfPoints || 0) + pointsToAdd;
+    user.totalSelfPoints = (user.totalSelfPoints || 0) + pointsToAdd;
+    await user.save();
+    let courseDetails = await CourseDetails.findOne({ userId });
+    const newPurchase = {
+        courseName: coursename,
+        packageName: packagename,
+        amount,
+        date: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
+        status: "completed",
+    };
+    if (!courseDetails) {
+        courseDetails = new CourseDetails({
+            userId,
+            name: fullname,
+            courseName: coursename,
+            packageName: packagename,
+            validityStart: now,
+            validityEnd: newValidityEnd,
+            purchaseHistory: [newPurchase],
+        });
+    } else {
+        const currentEnd = new Date(courseDetails.validityEnd);
+        if (currentEnd < now) {
+            courseDetails.validityStart = now;
+            courseDetails.validityEnd = newValidityEnd;
+        } else {
+            currentEnd.setMonth(currentEnd.getMonth() + validityMonths);
+            courseDetails.validityEnd = currentEnd;
+        }
+        courseDetails.purchaseHistory.push(newPurchase);
+    }
+    await courseDetails.save();
+};
+
 
 
 export const paymentverification_students = async (req, res) => {

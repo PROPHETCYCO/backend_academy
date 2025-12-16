@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-
 const checkoutSchema = new mongoose.Schema({
     fullname: {
         type: String,
@@ -39,11 +38,12 @@ const checkoutSchema = new mongoose.Schema({
     },
     razorpay_payment_id: {
         type: String,
-        required: true
+        default: null,
     },
-    razorpay_signature: {
+    paymentStatus: {
         type: String,
-        required: true
+        enum: ["pending", "paid", "failed"],
+        default: "pending"
     },
     createdAt: {
         type: Date,
