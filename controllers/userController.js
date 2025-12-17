@@ -39,6 +39,17 @@ export const registerUser = async (req, res) => {
             return res.status(400).json({ message: "User already exists with given details" });
         }
 
+        // ✅ 2.5️⃣ Validate parentId if provided
+        if (parentId) {
+            const parentUser = await User.findOne({ userId: parentId });
+            if (!parentUser) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Invalid parentId. Referrer does not exist.",
+                });
+            }
+        }
+
         // 3️⃣ Generate UserID and hash password
         const userId = await generateUniqueUserId();
         //const hashedPassword = await bcrypt.hash(password, 10);
