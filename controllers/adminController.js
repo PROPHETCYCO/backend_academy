@@ -9,6 +9,9 @@ export const getDashboardStats = async (req, res) => {
         // 2️⃣ Total amount (all-time)
         const totalData = await Checkout.aggregate([
             {
+                $match: { paymentStatus: "paid" },
+            },
+            {
                 $group: {
                     _id: null,
                     totalAmount: { $sum: "$amount" },
@@ -26,6 +29,7 @@ export const getDashboardStats = async (req, res) => {
         const currentMonthData = await Checkout.aggregate([
             {
                 $match: {
+                    paymentStatus: "paid",
                     createdAt: { $gte: startOfMonth, $lte: endOfMonth },
                 },
             },
