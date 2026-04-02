@@ -8,6 +8,7 @@ import { generateUniqueUserId } from "../utils/generateUserId.js";
 import { uploadFileToS3 } from "../utils/uploadToS3.js";
 import { generateToken } from "../utils/generateToken.js";
 import { sendMail } from '../mailer.js';
+import UserProgress from "../models/UserProgress.js";
 
 const BASE_REFERRAL_URL = "https://synthosphereacademy.com/register/";
 
@@ -37,17 +38,6 @@ export const registerUser = async (req, res) => {
         });
         if (existingUser) {
             return res.status(400).json({ message: "User already exists with given details" });
-        }
-
-        // ✅ 2.5️⃣ Validate parentId if provided
-        if (parentId) {
-            const parentUser = await User.findOne({ userId: parentId });
-            if (!parentUser) {
-                return res.status(400).json({
-                    success: false,
-                    message: "Invalid parentId. Referrer does not exist.",
-                });
-            }
         }
 
         // 3️⃣ Generate UserID and hash password
@@ -773,4 +763,89 @@ export const testEmail = async (req, res) => {
             error: error.message,
         });
     }
+};
+
+//////userprogress api
+export const watchvideo = async (req, res) => {
+     const { userId, videoId } = req.body;
+       try {
+    let user = await UserProgress.findOne({ userId });
+
+    if (!user) {
+      user = new UserProgress({
+        userId,
+        watchedVideos: [{ videoId }],
+      });
+    } else {
+      const exists = user.watchedVideos.some(
+        (v) => v.videoId === videoId
+      );
+
+      if (!exists) {
+        user.watchedVideos.push({ videoId });
+      }
+    }
+    await user.save();
+
+    res.json({ success: true, watchedVideos: user.watchedVideos });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+////all watched videos api by userID
+export const getWatchedVideos = async (req, res) => {
+  const { userId } = req.body;
+
+  try {
+    const user = await UserProgress.findOne({ userId });
+
+    if (!user) {
+      return res.json([]); // no videos watched yet
+    }
+
+    res.json(user.watchedVideos);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+/////submit quiz
+export const submitQuiz = async (req, res) => {
+  const { userId, passed } = req.body;
+
+  try {
+    let user = await UserProgress.findOne({ userId });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (passed) {
+      user.quizPassed = true;
+      user.certificateGenerated = true;
+    }
+
+    await user.save();
+
+    res.json({
+      success: true,
+      quizPassed: user.quizPassed,
+      certificateGenerated: user.certificateGenerated,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+///get full progress
+export const getProgress = async (req, res) => {
+  const { userId } = req.body;
+
+  try {
+    const user = await UserProgress.findOne({ userId });
+
+    if (!user) return res.json(null);
+
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 };
