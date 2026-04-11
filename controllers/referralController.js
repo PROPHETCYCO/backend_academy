@@ -140,7 +140,9 @@ export const getUserWithReferrals = async (req, res) => {
         email: user.email,
         phone: user.phone,
         status: user.status,
-        courseStatus, // ✅ IMPORTANT FIELD
+        courseStatus,
+        selfPoints: user.selfPoints,
+        totalSelfPoints: user.totalSelfPoints, 
         validityEnd: userCourses[0]?.validityEnd || null, // optional
       };
     });
