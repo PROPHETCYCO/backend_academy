@@ -1,6 +1,7 @@
 import User from "../models/User.js";
 import Payout from "../models/Payout.js";
 import Checkout from "../models/Checkout.js";
+import CourseDetails from "../models/CourseDetails.js";
 import { calculateRealtimeReferralPoints, calculateReferralPoints } from "../utils/calculateReferralPoints.js";
 
 // GET /api/referral/realtime/:userId
@@ -103,7 +104,46 @@ export const getUserWithReferrals = async (req, res) => {
 
         // Find referred users using referredIds array
         const referredUsers = await User.find({ userId: { $in: mainUser.referredIds } });
+              const allCourses = await CourseDetails.find({
+      userId: { $in: mainUser.referredIds },
+    });
 
+
+    const now = new Date();
+      // ✅ Merge data
+    const enrichedUsers = referredUsers.map((user) => {
+      // 🔥 Get all MASTER courses of this user
+      const userCourses = allCourses.filter(
+        (c) =>
+          c.userId === user.userId &&
+          c.packageName.toLowerCase().includes("master")
+      );
+
+      let courseStatus = "none";
+
+      if (userCourses.length > 0) {
+        // ✅ Get latest validityEnd
+        const latestCourse = userCourses.sort(
+          (a, b) => new Date(b.validityEnd) - new Date(a.validityEnd)
+        )[0];
+
+        if (new Date(latestCourse.validityEnd) > now) {
+          courseStatus = "active";   // ⭐ full
+        } else {
+          courseStatus = "expired";  // ⭐ half
+        }
+      }
+
+      return {
+        userId: user.userId,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        status: user.status,
+        courseStatus, // ✅ IMPORTANT FIELD
+        validityEnd: userCourses[0]?.validityEnd || null, // optional
+      };
+    });
         res.status(200).json({
             success: true,
             message: "User and referred users fetched successfully",
@@ -121,18 +161,8 @@ export const getUserWithReferrals = async (req, res) => {
                     //totalPoints: mainUser.totalPoints,
                     status: mainUser.status,
                 },
-                referredUsers: referredUsers.map(user => ({
-                    userId: user.userId,
-                    name: user.name,
-                    email: user.email,
-                    phone: user.phone,
-                    address: user.address,
-                    selfPoints: user.selfPoints,
-                    totalSelfPoints: user.totalSelfPoints,
-                    //referredPoints: user.referredPoints,
-                    //totalPoints: user.totalPoints,
-                    status: user.status,
-                })),
+                referredUsers: enrichedUsers,
+                 
             },
         });
     } catch (error) {
