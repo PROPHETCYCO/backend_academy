@@ -152,6 +152,10 @@ const handleBusinessLogic = async (checkout) => {
             currentEnd.setMonth(currentEnd.getMonth() + validityMonths);
             courseDetails.validityEnd = currentEnd;
         }
+        if (packagename !== "Monthly Subscription") {
+            courseDetails.courseName = coursename;
+            courseDetails.packageName = packagename;
+        }
         courseDetails.purchaseHistory.push(newPurchase);
     }
     await courseDetails.save();
