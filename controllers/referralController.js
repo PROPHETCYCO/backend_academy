@@ -104,50 +104,95 @@ export const getRealtimeReferralPoints = async (req, res) => {
   }
 };
 
-//Tree  Api
+  const parseCustomDate = (dateStr) => {
+  if (!dateStr) return null;
+
+  const [datePart, timePart] = dateStr.split(",");
+  const [day, month, year] = datePart.trim().split("/");
+
+  return new Date(`${year}-${month}-${day} ${timePart?.trim() || ""}`);
+};
+// updated Tree Api
 export const getUserWithReferrals = async (req, res) => {
+
   try {
     const { userId } = req.params;
 
-    // Find main user
     const mainUser = await User.findOne({ userId });
     if (!mainUser) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Find referred users using referredIds array
     const referredUsers = await User.find({
       userId: { $in: mainUser.referredIds },
     });
+
     const allCourses = await CourseDetails.find({
       userId: { $in: mainUser.referredIds },
     });
 
     const now = new Date();
-    // ✅ Merge data
+
+    // ✅ Cutoff date (30 April 2026)
+    const cutoffDate = new Date("2026-04-30T23:59:59.999Z");
+
     const enrichedUsers = referredUsers.map((user) => {
-      // 🔥 Get all MASTER courses of this user
-      const userCourses = allCourses.filter(
-        (c) =>
-          c.userId === user.userId &&
-        (
-          c.packageName.toLowerCase().includes("master") ||
-          c.packageName.toLowerCase().includes("teacher") 
-        ) 
+      const userAllCourses = allCourses.filter(
+        (c) => c.userId === user.userId
       );
+
+      // 🔥 MASTER / TEACHER logic (same)
+      const userCourses = userAllCourses.filter(
+        (c) =>
+          c.packageName.toLowerCase().includes("master") ||
+          c.packageName.toLowerCase().includes("teacher")
+      );
+
+      let subscriptionMatch = null;
+
+      // 🔥 Updated condition
+      userAllCourses.forEach((course) => {
+        const purchaseHistory = course.purchaseHistory || [];
+
+        const firstPurchase = purchaseHistory[0];   // index 0
+        const secondPurchase = purchaseHistory[1];  // index 1
+
+        if (
+          firstPurchase &&
+          secondPurchase &&
+          firstPurchase.packageName === "Learner Course" &&
+          secondPurchase.packageName === "Monthly Subscription"
+        ) {
+         const firstPurchaseDate = parseCustomDate(firstPurchase.date);
+
+          // ✅ Only if first purchase (Learner) before cutoff
+          if (firstPurchaseDate <= cutoffDate) {
+            subscriptionMatch = course;
+          }
+        }
+      });
 
       let courseStatus = "none";
 
-      if (userCourses.length > 0) {
-        // ✅ Get latest validityEnd
+      // ✅ Subscription logic (only valid cases)
+      if (subscriptionMatch) {
+        if (new Date(subscriptionMatch.validityEnd) > now) {
+          courseStatus = "active";
+        } else {
+          courseStatus = "expired"; // ⭐ half
+        }
+      }
+
+      // ✅ Master / Teacher fallback (unchanged)
+      else if (userCourses.length > 0) {
         const latestCourse = userCourses.sort(
-          (a, b) => new Date(b.validityEnd) - new Date(a.validityEnd),
+          (a, b) => new Date(b.validityEnd) - new Date(a.validityEnd)
         )[0];
 
         if (new Date(latestCourse.validityEnd) > now) {
-          courseStatus = "active"; // ⭐ full
+          courseStatus = "active";
         } else {
-          courseStatus = "expired"; // ⭐ half
+          courseStatus = "expired";
         }
       }
 
@@ -160,9 +205,12 @@ export const getUserWithReferrals = async (req, res) => {
         courseStatus,
         selfPoints: user.selfPoints,
         totalSelfPoints: user.totalSelfPoints,
-        validityEnd: userCourses[0]?.validityEnd || null, // optional
+        validityEnd: subscriptionMatch
+          ? subscriptionMatch.validityEnd
+          : userCourses[0]?.validityEnd || null,
       };
     });
+
     res.status(200).json({
       success: true,
       message: "User and referred users fetched successfully",
@@ -176,8 +224,6 @@ export const getUserWithReferrals = async (req, res) => {
           referralLink: mainUser.referralLink,
           selfPoints: mainUser.selfPoints,
           totalSelfPoints: mainUser.totalSelfPoints,
-          //referredPoints: mainUser.referredPoints,
-          //totalPoints: mainUser.totalPoints,
           status: mainUser.status,
         },
         referredUsers: enrichedUsers,
@@ -192,6 +238,98 @@ export const getUserWithReferrals = async (req, res) => {
     });
   }
 };
+
+
+
+
+//Tree  Api
+// export const getUserWithReferrals = async (req, res) => {
+//   try {
+//     const { userId } = req.params;
+
+//     // Find main user
+//     const mainUser = await User.findOne({ userId });
+//     if (!mainUser) {
+//       return res.status(404).json({ message: "User not found" });
+//     }
+
+//     // Find referred users using referredIds array
+//     const referredUsers = await User.find({
+//       userId: { $in: mainUser.referredIds },
+//     });
+//     const allCourses = await CourseDetails.find({
+//       userId: { $in: mainUser.referredIds },
+//     });
+
+//     const now = new Date();
+//     // ✅ Merge data
+//     const enrichedUsers = referredUsers.map((user) => {
+//       // 🔥 Get all MASTER courses of this user
+//       const userCourses = allCourses.filter(
+//         (c) =>
+//           c.userId === user.userId &&
+//         (
+//           c.packageName.toLowerCase().includes("master") ||
+//           c.packageName.toLowerCase().includes("teacher") 
+//         ) 
+//       );
+
+//       let courseStatus = "none";
+
+//       if (userCourses.length > 0) {
+//         // ✅ Get latest validityEnd
+//         const latestCourse = userCourses.sort(
+//           (a, b) => new Date(b.validityEnd) - new Date(a.validityEnd),
+//         )[0];
+
+//         if (new Date(latestCourse.validityEnd) > now) {
+//           courseStatus = "active"; // ⭐ full
+//         } else {
+//           courseStatus = "expired"; // ⭐ half
+//         }
+//       }
+
+//       return {
+//         userId: user.userId,
+//         name: user.name,
+//         email: user.email,
+//         phone: user.phone,
+//         status: user.status,
+//         courseStatus,
+//         selfPoints: user.selfPoints,
+//         totalSelfPoints: user.totalSelfPoints,
+//         validityEnd: userCourses[0]?.validityEnd || null, // optional
+//       };
+//     });
+//     res.status(200).json({
+//       success: true,
+//       message: "User and referred users fetched successfully",
+//       data: {
+//         mainUser: {
+//           userId: mainUser.userId,
+//           name: mainUser.name,
+//           email: mainUser.email,
+//           phone: mainUser.phone,
+//           address: mainUser.address,
+//           referralLink: mainUser.referralLink,
+//           selfPoints: mainUser.selfPoints,
+//           totalSelfPoints: mainUser.totalSelfPoints,
+//           //referredPoints: mainUser.referredPoints,
+//           //totalPoints: mainUser.totalPoints,
+//           status: mainUser.status,
+//         },
+//         referredUsers: enrichedUsers,
+//       },
+//     });
+//   } catch (error) {
+//     console.error("Error fetching user and referrals:", error);
+//     res.status(500).json({
+//       success: false,
+//       message: "Failed to fetch referral details",
+//       error: error.message,
+//     });
+//   }
+// };
 
 // New API: Get Team Summary
 // export const getTeamSummary = async (req, res) => {
