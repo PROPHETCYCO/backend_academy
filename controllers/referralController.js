@@ -43,7 +43,6 @@ export const getRealtimeReferralPoints = async (req, res) => {
     if (user.referredIds && user.referredIds.length > 0) {
       const directTeam = await User.find({ userId: { $in: user.referredIds } });
 
-
       currentdirectReferredpoints = directTeam.reduce((total, member) => {
         const points = member.totalSelfPoints || 0;
         return total + points;
@@ -104,7 +103,7 @@ export const getRealtimeReferralPoints = async (req, res) => {
   }
 };
 
-  const parseCustomDate = (dateStr) => {
+const parseCustomDate = (dateStr) => {
   if (!dateStr) return null;
 
   const [datePart, timePart] = dateStr.split(",");
@@ -114,7 +113,6 @@ export const getRealtimeReferralPoints = async (req, res) => {
 };
 // updated Tree Api
 export const getUserWithReferrals = async (req, res) => {
-
   try {
     const { userId } = req.params;
 
@@ -137,15 +135,13 @@ export const getUserWithReferrals = async (req, res) => {
     const cutoffDate = new Date("2026-04-30T23:59:59.999Z");
 
     const enrichedUsers = referredUsers.map((user) => {
-      const userAllCourses = allCourses.filter(
-        (c) => c.userId === user.userId
-      );
+      const userAllCourses = allCourses.filter((c) => c.userId === user.userId);
 
       // 🔥 MASTER / TEACHER logic (same)
       const userCourses = userAllCourses.filter(
         (c) =>
           c.packageName.toLowerCase().includes("master") ||
-          c.packageName.toLowerCase().includes("teacher")
+          c.packageName.toLowerCase().includes("teacher"),
       );
 
       let subscriptionMatch = null;
@@ -154,16 +150,17 @@ export const getUserWithReferrals = async (req, res) => {
       userAllCourses.forEach((course) => {
         const purchaseHistory = course.purchaseHistory || [];
 
-        const firstPurchase = purchaseHistory[0];   // index 0
-        const secondPurchase = purchaseHistory[1];  // index 1
+        const firstPurchase = purchaseHistory[0]; // index 0
 
+        const subscriptionPurchase = purchaseHistory
+          .slice(1)
+          .find((p) => p.packageName === "Monthly Subscription");
         if (
           firstPurchase &&
-          secondPurchase &&
-          firstPurchase.packageName === "Learner Course" &&
-          secondPurchase.packageName === "Monthly Subscription"
+          subscriptionPurchase &&
+          firstPurchase.packageName === "Learner Course"
         ) {
-         const firstPurchaseDate = parseCustomDate(firstPurchase.date);
+          const firstPurchaseDate = parseCustomDate(firstPurchase.date);
 
           // ✅ Only if first purchase (Learner) before cutoff
           if (firstPurchaseDate <= cutoffDate) {
@@ -186,7 +183,7 @@ export const getUserWithReferrals = async (req, res) => {
       // ✅ Master / Teacher fallback (unchanged)
       else if (userCourses.length > 0) {
         const latestCourse = userCourses.sort(
-          (a, b) => new Date(b.validityEnd) - new Date(a.validityEnd)
+          (a, b) => new Date(b.validityEnd) - new Date(a.validityEnd),
         )[0];
 
         if (new Date(latestCourse.validityEnd) > now) {
@@ -239,9 +236,6 @@ export const getUserWithReferrals = async (req, res) => {
   }
 };
 
-
-
-
 //Tree  Api
 // export const getUserWithReferrals = async (req, res) => {
 //   try {
@@ -270,8 +264,8 @@ export const getUserWithReferrals = async (req, res) => {
 //           c.userId === user.userId &&
 //         (
 //           c.packageName.toLowerCase().includes("master") ||
-//           c.packageName.toLowerCase().includes("teacher") 
-//         ) 
+//           c.packageName.toLowerCase().includes("teacher")
+//         )
 //       );
 
 //       let courseStatus = "none";
