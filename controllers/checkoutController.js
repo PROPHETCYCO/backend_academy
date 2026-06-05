@@ -153,7 +153,9 @@ const handleBusinessLogic = async (checkout) => {
     if (
       packagename !== "Monthly Subscription" &&
       packagename !== "Premium Monthly Subscription" &&
-      packagename !== "Super Premium Monthly Subscription"
+      packagename !== "Super Premium Monthly Subscription" &&
+      packagename !== "Basic Subscription" &&
+      packagename !== "Classic Traders" 
     ) {
       courseDetails.courseName = coursename;
       courseDetails.packageName = packagename;
@@ -305,13 +307,15 @@ export const paymentverification_students = async (req, res) => {
 export const getPointsForAmount = (amount) => {
   const mapping = {
     944: 800,
-    1880: 1600,
+    1888: 1600,
     2950: 2500,
     1770: 1500,
     3540: 3000,
     7080: 6000,
     11800: 10000,
-    59000: 25000,
+    708: 600,
+    472:400,
+
   };
   // Round off to handle small differences (e.g., decimals)
   const roundedAmount = Math.round(amount);
@@ -323,13 +327,14 @@ export const getPointsForAmount = (amount) => {
 export const getValidityForAmount = (amount) => {
   const mapping = {
     944: 1, // 1 month
-    1880: 1, // 1 month
+    1888: 1, // 1 month
     2950: 1, // 1 month
     1770: 1, // 1 month
     3540: 3, // 3 months
     7080: 6, // 6 month
     11800: 12, // 1 year
-    59000: 12, // 1 year
+    472: 1, // 1 month
+    // 708: 1, // 1 month
   };
   const roundedAmount = Math.round(amount);
   return mapping[roundedAmount] || 0;
