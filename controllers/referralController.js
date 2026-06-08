@@ -648,3 +648,38 @@ export const getAllTeamSummaries = async (req, res) => {
     });
   }
 };
+export const searchTreeUsers = async (req, res) => {
+      try {
+     console.log("SEARCH TREE API HIT");
+      console.log(req.body);
+    const { query } = req.body;
+
+    if (!query?.trim()) {
+      return res.status(200).json({
+        success: true,
+        data: [],
+      });
+    }
+
+    const users = await User.find({
+      $or: [
+        { userId: { $regex: query, $options: "i" } },
+        { name: { $regex: query, $options: "i" } },
+      ],
+    })
+      .select("userId name")
+      .limit(20);
+
+    res.status(200).json({
+      success: true,
+      data: users,
+    });
+  } catch (error) {
+    console.error("Search Tree Users Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
