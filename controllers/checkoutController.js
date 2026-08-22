@@ -155,6 +155,7 @@ const handleBusinessLogic = async (checkout) => {
       packagename !== "Premium Monthly Subscription" &&
       packagename !== "Super Premium Monthly Subscription" &&
       packagename !== "Basic Subscription" &&
+      packagename !== "Expert Advice" &&
       packagename !== "Classic Traders" 
     ) {
       courseDetails.courseName = coursename;
@@ -309,6 +310,7 @@ export const getPointsForAmount = (amount) => {
     944: 800,
     1888: 1600,
     2950: 2500,
+    1180: 1000,
     1770: 1500,
     3540: 3000,
     7080: 6000,
