@@ -103,6 +103,206 @@ export const getRealtimeReferralPoints = async (req, res) => {
   }
 };
 
+
+//////coupon code
+const generateUniqueCouponCode = async () => {
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const code = String(
+      Math.floor(1000 + Math.random() * 9000)
+    );
+
+    const exists = await User.exists({
+      couponCode: code,
+    });
+
+    if (!exists) {
+      return code;
+    }
+  }
+
+  throw new Error(
+    "Unable to generate a unique coupon code. Please try again."
+  );
+};
+
+const parsePurchaseDate = (dateString) => {
+  if (!dateString) return null;
+
+  const match = String(dateString).match(
+    /^(\d{1,2})\/(\d{1,2})\/(\d{4}),?\s+(\d{1,2}):(\d{2}):(\d{2})\s*(am|pm)$/i
+  );
+
+  if (!match) return null;
+
+  const [
+    ,
+    day,
+    month,
+    year,
+    hour,
+    minute,
+    second,
+    period,
+  ] = match;
+
+  let hours = Number(hour);
+
+  if (period.toLowerCase() === "pm" && hours !== 12) {
+    hours += 12;
+  }
+
+  if (period.toLowerCase() === "am" && hours === 12) {
+    hours = 0;
+  }
+
+  return new Date(
+    Number(year),
+    Number(month) - 1,
+    Number(day),
+    hours,
+    Number(minute),
+    Number(second)
+  );
+};
+
+export const getOrCreateCouponCode = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // 1. Find the user who may receive the coupon
+    const mainUser = await User.findOne({ userId });
+
+    if (!mainUser) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // 2. Existing coupon must never change
+    if (mainUser.couponCode) {
+      return res.status(200).json({
+        success: true,
+        eligible: true,
+        couponCode: mainUser.couponCode,
+        message: "Existing coupon code fetched successfully",
+      });
+    }
+
+    // 3. Get direct referrals only
+    const directTeamIds = mainUser.referredIds || [];
+
+    if (directTeamIds.length === 0) {
+      return res.status(200).json({
+        success: true,
+        eligible: false,
+        couponCode: null,
+        message: "No direct referrals found",
+      });
+    }
+
+    // 4. Eligible purchase window: 13 Oct to 30 Oct 2026 inclusive
+    // Uses the server's local timezone, consistent with the
+    // date parser below.
+    const startDate = new Date(2026, 9, 13, 0, 0, 0);
+    const endDate = new Date(2026, 9, 31, 0, 0, 0);
+
+    // 5. Get purchase records belonging to direct team members
+    const teamCourses = await CourseDetails.find({
+      userId: { $in: directTeamIds },
+    }).lean();
+
+    // 6. Check the last purchase in each purchaseHistory
+    const isEligible = teamCourses.some((course) => {
+      const history = course.purchaseHistory || [];
+
+      if (history.length === 0) {
+        return false;
+      }
+
+      const lastPurchase = history[history.length - 1];
+
+      if (!lastPurchase) {
+        return false;
+      }
+
+      const purchaseDate = parsePurchaseDate(lastPurchase.date);
+
+      return (
+        lastPurchase.status === "completed" &&
+        Number(lastPurchase.amount) > 1770 &&
+        purchaseDate !== null &&
+        !Number.isNaN(purchaseDate.getTime()) &&
+        purchaseDate >= startDate &&
+        purchaseDate < endDate
+      );
+    });
+
+    // 7. No qualifying purchase
+    if (!isEligible) {
+      return res.status(200).json({
+        success: true,
+        eligible: false,
+        couponCode: null,
+        message:
+          "No qualifying direct-team purchase found for the selected dates",
+      });
+    }
+
+    // 8. Generate a random 4-digit coupon
+   const generatedCode = await generateUniqueCouponCode();
+
+    // 9. Save only when couponCode is still empty
+    const updatedUser = await User.findOneAndUpdate(
+      {
+        _id: mainUser._id,
+        $or: [
+          { couponCode: null },
+          { couponCode: { $exists: false } },
+          { couponCode: "" },
+        ],
+      },
+      {
+        $set: {
+          couponCode: generatedCode,
+        },
+      },
+      {
+        new: true,
+      }
+    );
+
+    // 10. Handle concurrent requests safely
+    const finalUser =
+      updatedUser ||
+      (await User.findById(mainUser._id).select("couponCode"));
+
+    if (!finalUser) {
+      return res.status(500).json({
+        success: false,
+        message: "Unable to retrieve saved coupon code",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      eligible: true,
+      couponCode: finalUser.couponCode,
+      message: updatedUser
+        ? "Coupon code generated and saved successfully"
+        : "Existing coupon code fetched successfully",
+    });
+  } catch (error) {
+    console.error("Error processing coupon:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to process coupon code",
+      error: error.message,
+    });
+  }
+};
+
 const parseCustomDate = (dateStr) => {
   if (!dateStr) return null;
 
