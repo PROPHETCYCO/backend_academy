@@ -68,8 +68,9 @@ export const runGlobalPayout = async (req, res) => {
 
       // Reset referredPoints after payout
       //user.referredPoints = 0;
-      user.selfPoints = 0;
-      await user.save();
+      // user.selfPoints = 0;
+      // await user.save();
+      await User.updateOne({ _id: user._id }, { $set: { selfPoints: 0 } });
 
       // ✅ Add formatted IST date to response
       allPayouts.push({
@@ -162,12 +163,10 @@ export const updatePayoutStatus = async (req, res) => {
     // Find user payout record
     const payoutRecord = await Payout.findOne({ userId });
     if (!payoutRecord) {
-      return res
-        .status(404)
-        .json({
-          success: false,
-          message: "No payout record found for this user",
-        });
+      return res.status(404).json({
+        success: false,
+        message: "No payout record found for this user",
+      });
     }
 
     // Find the specific payout inside the array
