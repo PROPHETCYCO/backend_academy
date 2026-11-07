@@ -91,6 +91,7 @@ export const saveBankDetails = async (req, res) => {
       bankName,
       accountNo,
       branchName,
+      accountType,
       ifscCode,
     } = req.body;
 
@@ -102,10 +103,16 @@ export const saveBankDetails = async (req, res) => {
       !bankName ||
       !accountNo ||
       !branchName ||
+      !accountType ||
       !ifscCode
     ) {
       return res.status(400).json({ message: "All fields are required." });
     }
+    if (!["savings", "current"].includes(accountType)) {
+  return res.status(400).json({
+    message: "Invalid account type.",
+  });
+}
 
     const existing = await BankDetails.findOne({ userId });
 
@@ -129,6 +136,7 @@ export const saveBankDetails = async (req, res) => {
         accountNo,
         branchName,
         ifscCode,
+        accountType,
         passbookPhoto: passbookPhotoUrl,
         status: "pending",
       });
@@ -164,7 +172,7 @@ export const saveBankDetails = async (req, res) => {
       existing.accountNo = accountNo;
       existing.branchName = branchName;
       existing.ifscCode = ifscCode;
-
+      existing.accountType = accountType;
       if (passbookPhotoUrl) {
         existing.passbookPhoto = passbookPhotoUrl;
       }

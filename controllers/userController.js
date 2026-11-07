@@ -7,7 +7,7 @@ import CourseDetails from "../models/CourseDetails.js";
 import { generateUniqueUserId } from "../utils/generateUserId.js";
 import { uploadFileToS3 } from "../utils/uploadToS3.js";
 import { generateToken } from "../utils/generateToken.js";
-import { sendMail } from '../mailer.js';
+// import { sendMail } from '../mailer.js';
 import UserProgress from "../models/UserProgress.js";
 
 const BASE_REFERRAL_URL = "https://synthosphereacademy.com/register/";
@@ -127,18 +127,18 @@ export const registerUser = async (req, res) => {
 
 
         // Sending Mail
-        const subject = `Welcome to Synthosphere Academy, ${name || "User"}!`;
-        const html = `
-            <h2>Welcome to Synthosphere Academy</h2>
-            <p>Hi ${name || "there"},</p>
-            <p>Your account has been created successfully.</p>
-            <p><strong>User ID:</strong> ${userId}</p>
-            <p><strong>Password:</strong> ${password}</p>
-            <p>Login here: <a href="https://synthosphereacademy.com/login">https://synthosphereacademy.com/login</a></p>
-            <br/>
-        `;
+        // const subject = `Welcome to Synthosphere Academy, ${name || "User"}!`;
+        // const html = `
+        //     <h2>Welcome to Synthosphere Academy</h2>
+        //     <p>Hi ${name || "there"},</p>
+        //     <p>Your account has been created successfully.</p>
+        //     <p><strong>User ID:</strong> ${userId}</p>
+        //     <p><strong>Password:</strong> ${password}</p>
+        //     <p>Login here: <a href="https://synthosphereacademy.com/login">https://synthosphereacademy.com/login</a></p>
+        //     <br/>
+        // `;
 
-        await sendMail(email, subject, html);
+        // await sendMail(email, subject, html);
 
 
         // 9️⃣ Success response
@@ -747,7 +747,7 @@ export const testEmail = async (req, res) => {
             <br/>
         `;
 
-        await sendMail(email, subject, html);
+        // await sendMail(email, subject, html);
 
         res.status(200).json({
             success: true,
