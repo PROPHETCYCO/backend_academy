@@ -21,6 +21,7 @@ export const registerUser = async (req, res) => {
             phone,
             email,
             address,
+            dateOfBirth,
             aadharNo,
             panNo,
             password,
@@ -28,7 +29,7 @@ export const registerUser = async (req, res) => {
         } = req.body;
 
         // 1️⃣ Basic validation
-        if (!name || !phone || !email || !address || !aadharNo || !panNo || !password) {
+        if (!name || !phone || !email || !dateOfBirth || !address || !aadharNo || !panNo || !password) {
             return res.status(400).json({ message: "All fields are required" });
         }
 
@@ -78,6 +79,7 @@ export const registerUser = async (req, res) => {
             phone,
             email,
             address,
+            dateOfBirth,
             aadharNo,
             aadharPhotoFront: aadharPhotoFrontUrl,
             aadharPhotoBack: aadharPhotoBackUrl,

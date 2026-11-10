@@ -30,7 +30,10 @@ const userSchema = new mongoose.Schema(
       lowercase: true,
       trim: true,
     },
-
+    dateOfBirth: {
+      type: Date,
+      default: null,
+    },
     address: {
       type: String,
       required: true,
@@ -91,16 +94,15 @@ const userSchema = new mongoose.Schema(
       default: 0,
     },
     couponCode: {
-  type: String,
-  default: null,
-},
-// UserSchema-r definition-er pore add koro
+      type: String,
+      default: null,
+    },
+    // UserSchema-r definition-er pore add koro
 
     totalSelfPoints: {
       type: Number,
       default: 0,
     },
-  
 
     status: {
       type: String,
@@ -130,7 +132,7 @@ userSchema.index(
     partialFilterExpression: {
       couponCode: { $type: "string" },
     },
-  }
+  },
 );
 // 🧾 Generate Auth Token (optional)
 // userSchema.methods.generateAuthToken = function () {
