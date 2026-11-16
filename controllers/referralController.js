@@ -103,8 +103,6 @@ export const getRealtimeReferralPoints = async (req, res) => {
   }
 };
 
-
-
 export const getUserCouponCode = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -234,6 +232,7 @@ export const getUserWithReferrals = async (req, res) => {
         courseStatus,
         selfPoints: user.selfPoints,
         totalSelfPoints: user.totalSelfPoints,
+        createdAt: user.createdAt,
         validityEnd: subscriptionMatch
           ? subscriptionMatch.validityEnd
           : userCourses[0]?.validityEnd || null,
@@ -254,6 +253,7 @@ export const getUserWithReferrals = async (req, res) => {
           selfPoints: mainUser.selfPoints,
           totalSelfPoints: mainUser.totalSelfPoints,
           status: mainUser.status,
+          createdAt: mainUser.createdAt,
         },
         referredUsers: enrichedUsers,
       },
