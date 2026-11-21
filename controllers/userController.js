@@ -34,12 +34,48 @@ export const registerUser = async (req, res) => {
         }
 
         // 2️⃣ Check for duplicates
-        const existingUser = await User.findOne({
-            $or: [{ phone }, { email }, { aadharNo }, { panNo }],
+        // const existingUser = await User.findOne({
+        //     $or: [{ phone }, { email }, { aadharNo }, { panNo }],
+        // });
+        // if (existingUser) {
+        //     return res.status(400).json({ message: "User already exists with given details" });
+        // }
+        const duplicateChecks = [
+    {
+        field: "phone",
+        value: phone.trim(),
+        message: "Mobile number already registered!",
+    },
+    {
+        field: "email",
+        value: email.toLowerCase().trim(),
+        message: "Email already registered!",
+    },
+    {
+        field: "aadharNo",
+        value: aadharNo.replace(/-/g, ""),
+        message: "Aadhaar number already registered!",
+    },
+    {
+        field: "panNo",
+        value: panNo.toUpperCase().trim(),
+        message: "PAN number already registered!",
+    },
+];
+
+for (const check of duplicateChecks) {
+    const existingUser = await User.findOne({
+        [check.field]: check.value,
+    });
+
+    if (existingUser) {
+        return res.status(400).json({
+            success: false,
+            field: check.field,
+            message: check.message,
         });
-        if (existingUser) {
-            return res.status(400).json({ message: "User already exists with given details" });
-        }
+    }
+}
 
         // 3️⃣ Generate UserID and hash password
         const userId = await generateUniqueUserId();
