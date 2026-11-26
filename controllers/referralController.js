@@ -231,6 +231,7 @@ export const getUserWithReferrals = async (req, res) => {
         status: user.status,
         courseStatus,
         selfPoints: user.selfPoints,
+        totalReferralId: user.referredIds?.length || 0,
         totalSelfPoints: user.totalSelfPoints,
         createdAt: user.createdAt,
         validityEnd: subscriptionMatch
@@ -252,6 +253,7 @@ export const getUserWithReferrals = async (req, res) => {
           referralLink: mainUser.referralLink,
           selfPoints: mainUser.selfPoints,
           totalSelfPoints: mainUser.totalSelfPoints,
+          totalReferralId: mainUser.referredIds?.length || 0,
           status: mainUser.status,
           createdAt: mainUser.createdAt,
         },
