@@ -133,142 +133,142 @@ export const getUserCouponCode = async (req, res) => {
   }
 };
 
-const parseCustomDate = (dateStr) => {
-  if (!dateStr) return null;
+// const parseCustomDate = (dateStr) => {
+//   if (!dateStr) return null;
 
-  const [datePart, timePart] = dateStr.split(",");
-  const [day, month, year] = datePart.trim().split("/");
+//   const [datePart, timePart] = dateStr.split(",");
+//   const [day, month, year] = datePart.trim().split("/");
 
-  return new Date(`${year}-${month}-${day} ${timePart?.trim() || ""}`);
-};
-// updated Tree Api
-export const getUserWithReferrals = async (req, res) => {
-  try {
-    const { userId } = req.params;
+//   return new Date(`${year}-${month}-${day} ${timePart?.trim() || ""}`);
+// };
+// // updated Tree Api(with scholarship check)
+// export const getUserWithReferrals = async (req, res) => {
+//   try {
+//     const { userId } = req.params;
 
-    const mainUser = await User.findOne({ userId });
-    if (!mainUser) {
-      return res.status(404).json({ message: "User not found" });
-    }
+//     const mainUser = await User.findOne({ userId });
+//     if (!mainUser) {
+//       return res.status(404).json({ message: "User not found" });
+//     }
 
-    const referredUsers = await User.find({
-      userId: { $in: mainUser.referredIds },
-    });
+//     const referredUsers = await User.find({
+//       userId: { $in: mainUser.referredIds },
+//     });
 
-    const allCourses = await CourseDetails.find({
-      userId: { $in: mainUser.referredIds },
-    });
+//     const allCourses = await CourseDetails.find({
+//       userId: { $in: mainUser.referredIds },
+//     });
 
-    const now = new Date();
+//     const now = new Date();
 
-    // ✅ Cutoff date (30 April 2026)
-    const cutoffDate = new Date("2026-04-30T23:59:59.999Z");
+//     // ✅ Cutoff date (30 April 2026)
+//     const cutoffDate = new Date("2026-04-30T23:59:59.999Z");
 
-    const enrichedUsers = referredUsers.map((user) => {
-      const userAllCourses = allCourses.filter((c) => c.userId === user.userId);
+//     const enrichedUsers = referredUsers.map((user) => {
+//       const userAllCourses = allCourses.filter((c) => c.userId === user.userId);
 
-      // 🔥 MASTER / TEACHER logic (same)
-      const userCourses = userAllCourses.filter(
-        (c) =>
-          c.packageName.toLowerCase().includes("master") ||
-          c.packageName.toLowerCase().includes("teacher"),
-      );
+//       // 🔥 MASTER / TEACHER logic (same)
+//       const userCourses = userAllCourses.filter(
+//         (c) =>
+//           c.packageName.toLowerCase().includes("master") ||
+//           c.packageName.toLowerCase().includes("teacher"),
+//       );
 
-      let subscriptionMatch = null;
+//       let subscriptionMatch = null;
 
-      // 🔥 Updated condition
-      userAllCourses.forEach((course) => {
-        const purchaseHistory = course.purchaseHistory || [];
+//       // 🔥 Updated condition
+//       userAllCourses.forEach((course) => {
+//         const purchaseHistory = course.purchaseHistory || [];
 
-        const firstPurchase = purchaseHistory[0]; // index 0
+//         const firstPurchase = purchaseHistory[0]; // index 0
 
-        const subscriptionPurchase = purchaseHistory
-          .slice(1)
-          .find((p) => p.packageName === "Monthly Subscription");
-        if (
-          firstPurchase &&
-          subscriptionPurchase &&
-          firstPurchase.packageName === "Learner Course"
-        ) {
-          const firstPurchaseDate = parseCustomDate(firstPurchase.date);
+//         const subscriptionPurchase = purchaseHistory
+//           .slice(1)
+//           .find((p) => p.packageName === "Monthly Subscription");
+//         if (
+//           firstPurchase &&
+//           subscriptionPurchase &&
+//           firstPurchase.packageName === "Learner Course"
+//         ) {
+//           const firstPurchaseDate = parseCustomDate(firstPurchase.date);
 
-          // ✅ Only if first purchase (Learner) before cutoff
-          if (firstPurchaseDate <= cutoffDate) {
-            subscriptionMatch = course;
-          }
-        }
-      });
+//           // ✅ Only if first purchase (Learner) before cutoff
+//           if (firstPurchaseDate <= cutoffDate) {
+//             subscriptionMatch = course;
+//           }
+//         }
+//       });
 
-      let courseStatus = "none";
+//       let courseStatus = "none";
 
-      // ✅ Subscription logic (only valid cases)
-      if (subscriptionMatch) {
-        if (new Date(subscriptionMatch.validityEnd) > now) {
-          courseStatus = "active";
-        } else {
-          courseStatus = "expired"; // ⭐ half
-        }
-      }
+//       // ✅ Subscription logic (only valid cases)
+//       if (subscriptionMatch) {
+//         if (new Date(subscriptionMatch.validityEnd) > now) {
+//           courseStatus = "active";
+//         } else {
+//           courseStatus = "expired"; // ⭐ half
+//         }
+//       }
 
-      // ✅ Master / Teacher fallback (unchanged)
-      else if (userCourses.length > 0) {
-        const latestCourse = userCourses.sort(
-          (a, b) => new Date(b.validityEnd) - new Date(a.validityEnd),
-        )[0];
+//       // ✅ Master / Teacher fallback (unchanged)
+//       else if (userCourses.length > 0) {
+//         const latestCourse = userCourses.sort(
+//           (a, b) => new Date(b.validityEnd) - new Date(a.validityEnd),
+//         )[0];
 
-        if (new Date(latestCourse.validityEnd) > now) {
-          courseStatus = "active";
-        } else {
-          courseStatus = "expired";
-        }
-      }
+//         if (new Date(latestCourse.validityEnd) > now) {
+//           courseStatus = "active";
+//         } else {
+//           courseStatus = "expired";
+//         }
+//       }
 
-      return {
-        userId: user.userId,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        status: user.status,
-        courseStatus,
-        selfPoints: user.selfPoints,
-        totalReferralId: user.referredIds?.length || 0,
-        totalSelfPoints: user.totalSelfPoints,
-        createdAt: user.createdAt,
-        validityEnd: subscriptionMatch
-          ? subscriptionMatch.validityEnd
-          : userCourses[0]?.validityEnd || null,
-      };
-    });
+//       return {
+//         userId: user.userId,
+//         name: user.name,
+//         email: user.email,
+//         phone: user.phone,
+//         status: user.status,
+//         courseStatus,
+//         selfPoints: user.selfPoints,
+//         totalReferralId: user.referredIds?.length || 0,
+//         totalSelfPoints: user.totalSelfPoints,
+//         createdAt: user.createdAt,
+//         validityEnd: subscriptionMatch
+//           ? subscriptionMatch.validityEnd
+//           : userCourses[0]?.validityEnd || null,
+//       };
+//     });
 
-    res.status(200).json({
-      success: true,
-      message: "User and referred users fetched successfully",
-      data: {
-        mainUser: {
-          userId: mainUser.userId,
-          name: mainUser.name,
-          email: mainUser.email,
-          phone: mainUser.phone,
-          address: mainUser.address,
-          referralLink: mainUser.referralLink,
-          selfPoints: mainUser.selfPoints,
-          totalSelfPoints: mainUser.totalSelfPoints,
-          totalReferralId: mainUser.referredIds?.length || 0,
-          status: mainUser.status,
-          createdAt: mainUser.createdAt,
-        },
-        referredUsers: enrichedUsers,
-      },
-    });
-  } catch (error) {
-    console.error("Error fetching user and referrals:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to fetch referral details",
-      error: error.message,
-    });
-  }
-};
+//     res.status(200).json({
+//       success: true,
+//       message: "User and referred users fetched successfully",
+//       data: {
+//         mainUser: {
+//           userId: mainUser.userId,
+//           name: mainUser.name,
+//           email: mainUser.email,
+//           phone: mainUser.phone,
+//           address: mainUser.address,
+//           referralLink: mainUser.referralLink,
+//           selfPoints: mainUser.selfPoints,
+//           totalSelfPoints: mainUser.totalSelfPoints,
+//           totalReferralId: mainUser.referredIds?.length || 0,
+//           status: mainUser.status,
+//           createdAt: mainUser.createdAt,
+//         },
+//         referredUsers: enrichedUsers,
+//       },
+//     });
+//   } catch (error) {
+//     console.error("Error fetching user and referrals:", error);
+//     res.status(500).json({
+//       success: false,
+//       message: "Failed to fetch referral details",
+//       error: error.message,
+//     });
+//   }
+// };
 
 //Tree  Api
 // export const getUserWithReferrals = async (req, res) => {
@@ -714,6 +714,341 @@ export const searchTreeUsers = async (req, res) => {
     res.status(500).json({
       success: false,
       message: error.message,
+    });
+  }
+};
+
+
+
+// Scholarship cutoff date
+const cutoffDate = new Date("2026-04-30T23:59:59.999Z");
+
+// Custom IST date string কে Date-এ convert করবে
+function parseCustomDate(dateString) {
+  if (!dateString) return null;
+
+  const match = String(dateString).match(
+    /^(\d{1,2})\/(\d{1,2})\/(\d{4}),?\s*(\d{1,2}):(\d{2}):(\d{2})\s*(am|pm)$/i
+  );
+
+  if (!match) {
+    const parsed = new Date(dateString);
+    return isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  let [, day, month, year, hour, minute, second, ampm] = match;
+
+  day = Number(day);
+  month = Number(month);
+  year = Number(year);
+  hour = Number(hour);
+  minute = Number(minute);
+  second = Number(second);
+
+  if (ampm.toLowerCase() === "pm" && hour !== 12) {
+    hour += 12;
+  }
+
+  if (ampm.toLowerCase() === "am" && hour === 12) {
+    hour = 0;
+  }
+
+  // IST to UTC
+  return new Date(
+    Date.UTC(year, month - 1, day, hour - 5, minute - 30, second)
+  );
+}
+
+
+// Duplicate purchase history বাদ দিয়ে সব purchase একসঙ্গে করবে
+function getUniquePurchases(courseDocs = []) {
+  const purchases = courseDocs.flatMap(course =>
+    (course.purchaseHistory || []).map(purchase => ({
+      ...purchase.toObject?.() || purchase,
+    }))
+  );
+
+  const uniquePurchases = new Map();
+
+  purchases.forEach(purchase => {
+    const key = [
+      purchase.packageName,
+      purchase.courseName,
+      purchase.date,
+      purchase.amount,
+      purchase.status,
+    ].join("|");
+
+    if (!uniquePurchases.has(key)) {
+      uniquePurchases.set(key, purchase);
+    }
+  });
+
+  return Array.from(uniquePurchases.values()).sort((a, b) => {
+    const dateA = parseCustomDate(a.date)?.getTime() || 0;
+    const dateB = parseCustomDate(b.date)?.getTime() || 0;
+
+    return dateA - dateB;
+  });
+}
+
+
+// Scholarship eligibility check
+function isScholarshipEligible(courseDocs = []) {
+  if (!courseDocs.length) return false;
+
+  const purchases = getUniquePurchases(courseDocs);
+
+  // Only completed purchases
+  const completedPurchases = purchases.filter(
+    purchase => purchase.status === "completed"
+  );
+
+  // Master / Teacher purchase eligibility
+  const hasMasterOrTeacher = completedPurchases.some(purchase => {
+    const packageName = (purchase.packageName || "").toLowerCase();
+
+    return (
+      packageName.includes("master") ||
+      packageName.includes("teacher")
+    );
+  });
+
+  if (hasMasterOrTeacher) {
+    return true;
+  }
+
+  // Monthly Subscription eligibility
+  const firstPurchase = purchases[0];
+
+  if (!firstPurchase) return false;
+
+  if (firstPurchase.packageName !== "Learner Course") {
+    return false;
+  }
+
+  const firstPurchaseDate = parseCustomDate(firstPurchase.date);
+
+  if (!firstPurchaseDate || firstPurchaseDate > cutoffDate) {
+    return false;
+  }
+
+  // First Learner purchase-এর পরে completed Monthly Subscription থাকতে হবে
+  const hasMonthlySubscription = completedPurchases.some(purchase => {
+    return purchase.packageName === "Monthly Subscription";
+  });
+
+  return hasMonthlySubscription;
+}
+
+
+// Scholarship eligible direct referral count
+function getScholarshipCount(user, courseMap) {
+  const referralIds = user.referredIds || [];
+
+  return referralIds.filter(referralId => {
+    const referralCourses = courseMap[referralId] || [];
+
+    return isScholarshipEligible(referralCourses);
+  }).length;
+}
+/////ata coursestatus er jnno
+const parseCustomDate2 = (dateStr) => {
+  if (!dateStr) return null;
+
+  const [datePart, timePart] = dateStr.split(",");
+  const [day, month, year] = datePart.trim().split("/");
+
+  return new Date(
+    `${year}-${month}-${day} ${timePart?.trim() || ""}`
+  );
+};
+// Main API
+export const getUserWithReferrals = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // 1. Main user fetch
+    const mainUser = await User.findOne({ userId }).select("-aadharNo -aadharPhotoFront -aadharPhotoBack -panNo -panPhoto -password -phone -email -dateOfBirth -address -referralLink  -couponCode");
+
+    if (!mainUser) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    // 2. Main user's direct referrals
+    const referredUsers = await User.find({
+      userId: { $in: mainUser.referredIds || [] },
+    }).select("-aadharNo -aadharPhotoFront -aadharPhotoBack -panNo -panPhoto -password -phone -email -dateOfBirth -address -referralLink  -couponCode");
+
+
+    // 3. Direct referrals-এর second-level referrals
+    const secondLevelIds = referredUsers.flatMap(
+      user => user.referredIds || []
+    );
+
+    const secondLevelUsers = await User.find({
+      userId: { $in: secondLevelIds },
+    });
+
+    // 4. Direct + second-level user IDs
+    const allRelevantIds = [
+      ...new Set([
+        ...(mainUser.referredIds || []),
+        ...secondLevelUsers.map(user => user.userId),
+      ]),
+    ];
+
+    // 5. CourseDetails model থেকে purchase history fetch
+    const allCourses = await CourseDetails.find({
+      userId: { $in: allRelevantIds },
+    });
+
+    // 6. User-wise CourseDetails map
+    const courseMap = {};
+
+    allCourses.forEach(course => {
+      if (!courseMap[course.userId]) {
+        courseMap[course.userId] = [];
+      }
+
+      courseMap[course.userId].push(course);
+    });
+
+    // 7. Main user scholarship count
+    const mainUserScholarshipCount = getScholarshipCount(
+      mainUser,
+      courseMap
+    );
+
+    // 8. Current date
+    const now = new Date();
+
+    // 9. Direct referrals enriched data
+    const enrichedUsers = referredUsers.map(user => {
+      
+const userAllCourses = courseMap[user.userId] || [];
+
+// Master / Teacher courses
+const userCourses = userAllCourses.filter(course => {
+  const packageName = (course.packageName || "").toLowerCase();
+
+  return (
+    packageName.includes("master") ||
+    packageName.includes("teacher")
+  );
+});
+
+const now = new Date();
+const cutoffDate = new Date("2026-04-30T23:59:59.999Z");
+
+let subscriptionMatch = null;
+
+// Monthly Subscription eligibility check
+userAllCourses.forEach((course) => {
+  const purchaseHistory = course.purchaseHistory || [];
+
+  const firstPurchase = purchaseHistory[0];
+
+  const subscriptionPurchase = purchaseHistory
+    .slice(1)
+    .find(
+      (p) => p.packageName === "Monthly Subscription"
+    );
+
+  if (
+    firstPurchase &&
+    subscriptionPurchase &&
+    firstPurchase.packageName === "Learner Course"
+  ) {
+    const firstPurchaseDate = parseCustomDate2(
+      firstPurchase.date
+    );
+
+    if (
+      firstPurchaseDate &&
+      firstPurchaseDate <= cutoffDate
+    ) {
+      subscriptionMatch = course;
+    }
+  }
+});
+
+let courseStatus = "none";
+let validityEnd = null;
+
+// Monthly Subscription has priority
+if (subscriptionMatch) {
+  validityEnd = subscriptionMatch.validityEnd;
+
+  courseStatus =
+    new Date(subscriptionMatch.validityEnd) > now
+      ? "active"
+      : "expired";
+}
+
+// Master / Teacher fallback
+else if (userCourses.length > 0) {
+  const latestCourse = [...userCourses].sort(
+    (a, b) =>
+      new Date(b.validityEnd) - new Date(a.validityEnd)
+  )[0];
+
+  validityEnd = latestCourse.validityEnd;
+
+  courseStatus =
+    new Date(latestCourse.validityEnd) > now
+      ? "active"
+      : "expired";
+}
+
+
+      // 10. Scholarship count for this referral
+      const scholarshipEligibleCount = getScholarshipCount(
+        user,
+        courseMap
+      );
+
+      return {
+        ...user.toObject(),
+
+        userId: user.userId,
+        name: user.name,
+        status: user.status,
+
+        selfPoints: user.selfPoints,
+        totalSelfPoints: user.totalSelfPoints,
+
+        totalReferralId: user.referredIds?.length || 0,
+
+        courseStatus,
+        validityEnd,
+
+        scholarshipEligibleCount,
+      };
+    });
+
+    // 11. Final response
+    return res.status(200).json({
+      success: true,
+
+      mainUser: {
+        ...mainUser.toObject(),
+
+        scholarshipEligibleCount: mainUserScholarshipCount,
+      },
+
+      referredUsers: enrichedUsers,
+    });
+
+  } catch (error) {
+    console.error("getUserWithReferrals error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
     });
   }
 };
